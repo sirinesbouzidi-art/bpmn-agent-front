@@ -1,0 +1,69 @@
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+:root {
+  --telecom-primary: #4f46e5;
+  --telecom-secondary: #06b6d4;
+  --telecom-accent: #a855f7;
+  --surface: #f7f9ff;
+  --surface-soft: #eef3ff;
+  --card: rgba(255, 255, 255, 0.9);
+  --text: #1f2a44;
+  --text-muted: #667392;
+  --border: #dce4f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: 'Inter', sans-serif;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(79, 70, 229, 0.12), transparent 38%),
+    radial-gradient(circle at 85% 15%, rgba(6, 182, 212, 0.14), transparent 32%),
+    linear-gradient(180deg, #f9fbff 0%, #f3f7ff 45%, #eff4ff 100%);
+  color: var(--text);
+}
+
+body {
+  line-height: 1.5;
+}
+
+.page-container {
+  max-width: 1240px;
+  margin: 30px auto;
+  padding: 0 20px 24px;
+}
+
+.content-card {
+  background: var(--card);
+  border-radius: 24px;
+  border: 1px solid rgba(220, 228, 245, 0.85);
+  box-shadow: 0 16px 40px rgba(43, 62, 110, 0.12);
+  backdrop-filter: blur(8px);
+  padding: 28px;
+}
+
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+button.mat-mdc-unelevated-button.mat-primary {
+  background: linear-gradient(135deg, var(--telecom-primary), var(--telecom-accent));
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    margin: 20px auto;
+    padding: 0 12px 18px;
+  }
+
+  .content-card {
+    border-radius: 18px;
+    padding: 20px;
+  }
+}
