@@ -7,14 +7,13 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/auth/login.component').then((m) => m.LoginComponent)
   },
   {
+    path: 'register',
+    loadComponent: () => import('./features/auth/register.component').then((m) => m.RegisterComponent)
+  },
+  {
     path: 'home',
     canActivate: [authGuard],
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent)
-  },
-  {
-    path: 'viewer',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/bpmn-viewer/viewer.component').then((m) => m.ViewerComponent)
   },
   {
     path: 'history',
@@ -26,10 +25,13 @@ export const appRoutes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/about/about.component').then((m) => m.AboutComponent)
   },
-  {
-  path: 'register',
-  loadComponent: () => import('./features/auth/register.component').then(m => m.RegisterComponent)
+  { 
+    path: '', 
+    pathMatch: 'full', 
+    redirectTo: 'login' 
   },
-  { path: '', pathMatch: 'full', redirectTo: 'login' },
-  { path: '**', redirectTo: 'login' }
+  { 
+    path: '**', 
+    redirectTo: 'login' 
+  }
 ];

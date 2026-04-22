@@ -41,10 +41,14 @@ export class AuthService {
       );
   }
   // Dans auth.service.ts, ajoutez cette méthode
-register(email: string, password: string): Observable<any> {
-  return this.http.post(`${this.apiUrl}/register`, { email, password });
-}
-
+  register(email: string, password: string, firstName?: string, lastName?: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/register`, {
+      email,
+      password,
+      firstName,
+      lastName
+    });
+  }
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);

@@ -4,7 +4,9 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { finalize } from 'rxjs';
 import { AuthService } from '../core/services/auth.service';
+import { BpmnService } from '../core/services/bpmn.service';
 
 @Component({
   selector: 'app-navbar',
@@ -17,12 +19,20 @@ import { AuthService } from '../core/services/auth.service';
         BPMN Telecom Studio
       </span>
       <span class="spacer"></span>
-       <div class="nav-links">
+      <div class="nav-links">
         <a mat-button routerLink="/about" routerLinkActive="active">About</a>
         <a mat-button routerLink="/home" routerLinkActive="active">Home</a>
-        <a mat-button routerLink="/viewer" routerLinkActive="active">Viewer</a>
         <a mat-button routerLink="/history" routerLinkActive="active">History</a>
       </div>
+      <button
+        mat-flat-button
+        color="primary"
+        class="deploy-btn"
+        [disabled]="!hasCurrentModel() || isDeploying"
+        (click)="deployCurrentModel()"
+      >
+        {{ isDeploying ? 'Deploying...' : 'Deploy BPMN' }}
+      </button>
       <button mat-stroked-button class="logout-btn" (click)="logout()">
         <mat-icon>logout</mat-icon>
         Logout
@@ -74,6 +84,10 @@ import { AuthService } from '../core/services/auth.service';
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.08);
       }
+     .deploy-btn {
+        border-radius: 999px;
+      }
+
 
       @media (max-width: 768px) {
         .navbar {
@@ -102,12 +116,40 @@ import { AuthService } from '../core/services/auth.service';
 })
 export class NavbarComponent {
   private readonly authService = inject(AuthService);
+  private readonly bpmnService = inject(BpmnService);
   private readonly router = inject(Router);
 
   readonly isAuthenticated = computed(() => this.authService.isAuthenticated());
+  readonly hasCurrentModel = computed(() => this.bpmnService.currentModel() !== null);
+
+  isDeploying = false;
 
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/login']);
+  }
+  deployCurrentModel(): void {
+    const currentModel = this.bpmnService.currentModel();
+    if (!currentModel || this.isDeploying) {
+      return;
+    }
+
+    this.isDeploying = true;
+
+    this.bpmnService
+      .deployXml(currentModel.xml)
+      .pipe(finalize(() => (this.isDeploying = false)))
+      .subscribe({
+        next: (response) => {
+          if (!response.success) {
+            return;
+          }
+
+          setTimeout(() => {
+            window.open('http://localhost:8081', '_blank');
+          }, 1000);
+        },
+        error: () => undefined
+      });
   }
 }
