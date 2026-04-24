@@ -4,16 +4,14 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { finalize } from 'rxjs';
 import { AuthService } from '../core/services/auth.service';
-import { BpmnService } from '../core/services/bpmn.service';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
   imports: [CommonModule, MatToolbarModule, MatButtonModule, MatIconModule, RouterLink, RouterLinkActive],
   template: `
-    <mat-toolbar class="navbar" *ngIf="isAuthenticated()">
+    <mat-toolbar class="navbar" *ngIf="isAuthenticated() && !isAuthPage()">
       <span class="brand" routerLink="/home">
         <mat-icon>insights</mat-icon>
         BPMN Telecom Studio
@@ -24,15 +22,6 @@ import { BpmnService } from '../core/services/bpmn.service';
         <a mat-button routerLink="/home" routerLinkActive="active">Home</a>
         <a mat-button routerLink="/history" routerLinkActive="active">History</a>
       </div>
-      <button
-        mat-flat-button
-        color="primary"
-        class="deploy-btn"
-        [disabled]="!hasCurrentModel() || isDeploying"
-        (click)="deployCurrentModel()"
-      >
-        {{ isDeploying ? 'Deploying...' : 'Deploy BPMN' }}
-      </button>
       <button mat-stroked-button class="logout-btn" (click)="logout()">
         <mat-icon>logout</mat-icon>
         Logout
@@ -64,7 +53,7 @@ import { BpmnService } from '../core/services/bpmn.service';
         letter-spacing: 0.2px;
         cursor: pointer;
       }
-         .nav-links {
+      .nav-links {
         display: inline-flex;
         gap: 4px;
       }
@@ -72,23 +61,18 @@ import { BpmnService } from '../core/services/bpmn.service';
       .spacer {
         flex: 1;
       }
-        .active {
+      .active {
         font-weight: 600;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.18);
       }
 
-     .logout-btn {
+      .logout-btn {
         color: #fff;
         border-color: rgba(255, 255, 255, 0.6);
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.08);
       }
-     .deploy-btn {
-        border-radius: 999px;
-      }
-
-
       @media (max-width: 768px) {
         .navbar {
           top: 0;
@@ -116,40 +100,13 @@ import { BpmnService } from '../core/services/bpmn.service';
 })
 export class NavbarComponent {
   private readonly authService = inject(AuthService);
-  private readonly bpmnService = inject(BpmnService);
   private readonly router = inject(Router);
-
   readonly isAuthenticated = computed(() => this.authService.isAuthenticated());
-  readonly hasCurrentModel = computed(() => this.bpmnService.currentModel() !== null);
-
-  isDeploying = false;
-
+  isAuthPage(): boolean {
+    return this.router.url.startsWith('/login') || this.router.url.startsWith('/register');
+  }
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/login']);
-  }
-  deployCurrentModel(): void {
-    const currentModel = this.bpmnService.currentModel();
-    if (!currentModel || this.isDeploying) {
-      return;
-    }
-
-    this.isDeploying = true;
-
-    this.bpmnService
-      .deployXml(currentModel.xml)
-      .pipe(finalize(() => (this.isDeploying = false)))
-      .subscribe({
-        next: (response) => {
-          if (!response.success) {
-            return;
-          }
-
-          setTimeout(() => {
-            window.open('http://localhost:8081', '_blank');
-          }, 1000);
-        },
-        error: () => undefined
-      });
   }
 }
