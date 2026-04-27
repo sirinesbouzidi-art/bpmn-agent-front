@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, AfterViewInit, ViewChild, ElementRef, OnDestroy, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -15,13 +15,22 @@ import { finalize } from 'rxjs';
 import { BpmnService } from '../../core/services/bpmn.service';
 import { HistoryService } from '../../core/services/history.service';
 import { BpmnModel } from '../../shared/models/bpmn.model';
-import BpmnJS from 'bpmn-js/lib/NavigatedViewer';
+import BpmnModeler from 'bpmn-js/lib/Modeler';
+interface BpmnElement {
+  id: string;
+  type: string;
+  businessObject?: {
+    id?: string;
+    name?: string;
+  };
+}
 
 @Component({
   selector: 'app-home',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     RouterLink,
     MatButtonModule,
@@ -169,6 +178,36 @@ import BpmnJS from 'bpmn-js/lib/NavigatedViewer';
           </div>
         </div>
       </main>
+            <aside class="properties-sidebar">
+        <div class="properties-header">
+          <h3>Properties</h3>
+        </div>
+
+        <div *ngIf="selectedElement(); else noSelection" class="properties-form">
+          <label>
+            Element type
+            <input [value]="selectedElementType" readonly />
+          </label>
+
+          <label>
+            Element ID
+            <input [(ngModel)]="selectedElementId" (blur)="updateElementId()" />
+          </label>
+
+          <label>
+            Label
+            <input [(ngModel)]="selectedElementName" (blur)="updateElementName()" />
+          </label>
+
+          <button mat-stroked-button type="button" (click)="applySelectionUpdates()">
+            Apply changes
+          </button>
+        </div>
+
+        <ng-template #noSelection>
+          <p class="no-selection-text">Select a BPMN element to edit it.</p>
+        </ng-template>
+      </aside>
     </div>
   `,
   styles: [`
@@ -439,6 +478,7 @@ import BpmnJS from 'bpmn-js/lib/NavigatedViewer';
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      min-width: 0;
     }
 
     .canvas-header {
@@ -563,6 +603,48 @@ import BpmnJS from 'bpmn-js/lib/NavigatedViewer';
       color: #94a3b8;
       font-size: 12px;
     }
+          .properties-sidebar {
+      width: 320px;
+      background: white;
+      border-left: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .properties-header h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #1e293b;
+    }
+
+    .properties-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .properties-form label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .properties-form input {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      height: 38px;
+      padding: 0 10px;
+      font-size: 14px;
+    }
+
+    .no-selection-text {
+      margin: 0;
+      color: #64748b;
+      font-size: 14px;
+    }
 
     @media (max-width: 768px) {
       .workspace-container {
@@ -582,7 +664,11 @@ import BpmnJS from 'bpmn-js/lib/NavigatedViewer';
       .canvas-area {
         height: 50%;
       }
-
+      .properties-sidebar {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid #e2e8f0;
+      }
       .canvas-actions button span {
         display: none;
       }
@@ -606,6 +692,10 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
   messages = signal<Array<{ role: 'user' | 'assistant', content: string, timestamp: Date }>>([]);
   historyCount = signal<number>(0);
   promptControl = this.fb.control('', [Validators.minLength(10)]);
+  selectedElement = signal<BpmnElement | null>(null);
+  selectedElementType = '';
+  selectedElementId = '';
+  selectedElementName = '';
 
   readonly examples: string[] = [
     'Lorsqu\'un client demande une portabilité, vérifier son éligibilité puis activer la ligne.',
@@ -613,7 +703,7 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
     'Lorsqu\' un abonnement expire, envoyer un rappel et désactiver le service si non renouvelé.'
   ];
 
-  private viewer?: BpmnJS;
+  modeler: BpmnModeler | null = null;
 
   constructor() {
     this.updateHistoryCount();
@@ -624,12 +714,13 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     if (this.canvasRef) {
-      this.viewer = new BpmnJS({ container: this.canvasRef.nativeElement });
+      this.modeler = new BpmnModeler({ container: this.canvasRef.nativeElement });
+      this.bindSelectionEvents();
     }
   }
 
   ngOnDestroy(): void {
-    this.viewer?.destroy();
+    this.modeler?.destroy();
   }
 
   updateHistoryCount(): void {
@@ -677,9 +768,9 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
   }
 
   private async loadDiagram(xml: string): Promise<void> {
-    if (!this.viewer) return;
+    if (!this.modeler) return;
     try {
-      await this.viewer.importXML(xml);
+      await this.modeler.importXML(xml);
       this.resetZoom();
     } catch (err) {
       console.error('Error loading diagram:', err);
@@ -688,7 +779,7 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
   }
 
 zoomIn(): void {
-  const canvas = this.viewer?.get('canvas') as { zoom: (level?: number | 'fit-viewport') => number };
+  const canvas = this.modeler?.get('canvas') as { zoom: (level?: number | 'fit-viewport') => number };
   if (canvas) {
     const currentZoom = canvas.zoom();
     canvas.zoom(currentZoom + 0.1);
@@ -696,7 +787,7 @@ zoomIn(): void {
 }
 
 zoomOut(): void {
-  const canvas = this.viewer?.get('canvas') as { zoom: (level?: number | 'fit-viewport') => number };
+  const canvas = this.modeler?.get('canvas') as { zoom: (level?: number | 'fit-viewport') => number };
   if (canvas) {
     const currentZoom = canvas.zoom();
     canvas.zoom(Math.max(0.1, currentZoom - 0.1));
@@ -704,34 +795,36 @@ zoomOut(): void {
 }
 
 resetZoom(): void {
-  const canvas = this.viewer?.get('canvas') as { zoom: (mode: 'fit-viewport') => void };
+  const canvas = this.modeler?.get('canvas') as { zoom: (mode: 'fit-viewport') => void };
   canvas?.zoom('fit-viewport');
 }
 
-  exportXml(): void {
+  async exportXml(): Promise<void> {
     const model = this.currentModel();
     if (!model) return;
-    this.bpmnService.downloadXml(model);
+    const xml = await this.getCurrentXml();
+    this.bpmnService.downloadXml({ ...model, xml });
     this.snackBar.open('XML exported successfully', 'Close', { duration: 2000 });
   }
 
   async exportSvg(): Promise<void> {
     const model = this.currentModel();
-    if (!model || !this.viewer) return;
-    const result = (await this.viewer.saveSVG()) as { svg: string };
+    if (!model || !this.modeler) return;
+    const result = (await this.modeler.saveSVG()) as { svg: string };
     this.bpmnService.downloadSvg(result.svg, model.name);
     this.snackBar.open('SVG exported successfully', 'Close', { duration: 2000 });
   }
-    deployCurrentModel(): void {
+    async deployCurrentModel(): Promise<void> {
     const model = this.currentModel();
     if (!model || this.isDeploying) {
       return;
     }
 
     this.isDeploying = true;
+    const xml = await this.getCurrentXml();
 
     this.bpmnService
-      .deployXml(model.xml)
+      .deployXml(xml)
       .pipe(finalize(() => (this.isDeploying = false)))
       .subscribe({
         next: (response) => {
@@ -749,6 +842,41 @@ resetZoom(): void {
           this.snackBar.open('Deployment failed. Please try again.', 'Close', { duration: 3000 });
         }
       });
+  }
+    applySelectionUpdates(): void {
+    this.updateElementId();
+    this.updateElementName();
+  }
+
+  updateElementId(): void {
+    const element = this.selectedElement();
+    const modeling = this.modeler?.get('modeling') as {
+      updateProperties: (target: BpmnElement, props: { id: string }) => void;
+    };
+
+    if (!element || !modeling || !this.selectedElementId.trim()) {
+      return;
+    }
+
+    modeling.updateProperties(element, { id: this.selectedElementId.trim() });
+    this.refreshSelectedElement(element);
+  }
+
+  updateElementName(): void {
+    const element = this.selectedElement();
+    const modeling = this.modeler?.get('modeling') as {
+      updateLabel: (target: BpmnElement, label: string) => void;
+      updateProperties: (target: BpmnElement, props: { name: string }) => void;
+    };
+
+    if (!element || !modeling) {
+      return;
+    }
+
+    const name = this.selectedElementName.trim();
+    modeling.updateLabel(element, name);
+    modeling.updateProperties(element, { name });
+    this.refreshSelectedElement(element);
   }
 
   logout(): void {
@@ -768,6 +896,47 @@ resetZoom(): void {
       this.messagesContainer.nativeElement.scrollTop = this.messagesContainer.nativeElement.scrollHeight;
     }
   }
+    private bindSelectionEvents(): void {
+    const eventBus = this.modeler?.get('eventBus') as {
+      on: (event: string, handler: (payload: { newSelection: BpmnElement[] }) => void) => void;
+    };
+
+    eventBus?.on('selection.changed', ({ newSelection }) => {
+      if (!newSelection.length) {
+        this.selectedElement.set(null);
+        this.selectedElementType = '';
+        this.selectedElementId = '';
+        this.selectedElementName = '';
+        return;
+      }
+
+      this.refreshSelectedElement(newSelection[0]);
+    });
+  }
+
+  private refreshSelectedElement(element: BpmnElement): void {
+    this.selectedElement.set(element);
+    this.selectedElementType = element.type;
+    this.selectedElementId = element.businessObject?.id || element.id || '';
+    this.selectedElementName = element.businessObject?.name || '';
+  }
+
+  private async getCurrentXml(): Promise<string> {
+    const model = this.currentModel();
+
+    if (!model || !this.modeler) {
+      return model?.xml || '';
+    }
+
+    const result = (await this.modeler.saveXML({ format: true })) as { xml: string };
+    const updatedModel = { ...model, xml: result.xml };
+
+    this.currentModel.set(updatedModel);
+    this.bpmnService.setCurrentModel(updatedModel);
+
+    return result.xml;
+  }
+
 
   private generateDynamicXml(prompt: string): string {
 

@@ -1,4 +1,7 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
+@import 'bpmn-js/dist/assets/diagram-js.css';
+@import 'bpmn-js/dist/assets/bpmn-js.css';
+@import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css';
 :root {
   --telecom-primary: #4f46e5;
   --telecom-secondary: #06b6d4;
