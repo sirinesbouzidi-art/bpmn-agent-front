@@ -17,6 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import BpmnModeler from 'bpmn-js/lib/Modeler';
 import { finalize } from 'rxjs';
 import { BpmnService } from '../../core/services/bpmn.service';
+import { HistoryService } from '../../core/services/history.service';
 
 interface BpmnElement {
   id: string;
@@ -37,7 +38,7 @@ interface BpmnElement {
           <h3>Model Info</h3>
           <p><strong>Name:</strong> {{ currentModel.name }}</p>
           <p><strong>Description:</strong> {{ currentModel.description }}</p>
-          <p><strong>Creation date:</strong> {{ currentModel.createdAt | date: 'medium' }}</p>
+          <p><strong>Creation date:</strong> {{ currentModel.date | date: 'medium' }}</p>
           <p><strong>Status:</strong> {{ currentModel.status }}</p>
         </mat-card>
 
@@ -229,9 +230,10 @@ interface BpmnElement {
 })
 export class ViewerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: false }) canvasRef?: ElementRef<HTMLDivElement>;
-  @ViewChild('propertiesPanel', { static: false }) propertiesPanelRef?: ElementRef<HTMLDivElement>;
+
 
   private readonly bpmnService = inject(BpmnService);
+  private readonly historyService = inject(HistoryService);
   private readonly router = inject(Router);
 
   readonly model = signal(this.bpmnService.currentModel());
@@ -254,7 +256,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!this.canvasRef || !this.propertiesPanelRef) {
+    if (!this.canvasRef) {
       return;
     }
 
@@ -264,6 +266,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
     await this.modeler.importXML(this.model()!.xml);
     this.bindSelectionEvents();
+    this.bindAutoSaveEvents();
     this.resetZoom();
   }
 
@@ -428,7 +431,27 @@ private bindSelectionEvents(): void {
 
     this.bpmnService.setCurrentModel(updatedModel);
     this.model.set(updatedModel);
+    this.historyService.updateHistoryItem(updatedModel.id, { xml: result.xml });
 
     return result.xml;
+  }
+  private bindAutoSaveEvents(): void {
+    const eventBus = this.modeler?.get('eventBus') as {
+      on: (event: string, handler: () => void) => void;
+    };
+
+    eventBus?.on('commandStack.changed', async () => {
+      const currentModel = this.model();
+      if (!currentModel || !this.modeler) {
+        return;
+      }
+
+      const result = (await this.modeler.saveXML({ format: true })) as { xml: string };
+      const updatedModel = { ...currentModel, xml: result.xml };
+
+      this.bpmnService.setCurrentModel(updatedModel);
+      this.model.set(updatedModel);
+      this.historyService.updateHistoryItem(currentModel.id, { xml: result.xml });
+    });
   }
 }

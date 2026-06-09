@@ -126,6 +126,16 @@ interface BpmnElement {
             </p>
           </div>
           <div class="canvas-actions">
+            <button
+              mat-stroked-button
+              type="button"
+              class="properties-toggle-btn"
+              (click)="togglePropertiesPanel()"
+              [matTooltip]="isPropertiesPanelVisible ? 'Hide properties panel' : 'Show properties panel'"
+            >
+              <mat-icon>{{ isPropertiesPanelVisible ? 'dock_to_right' : 'menu_open' }}</mat-icon>
+              {{ isPropertiesPanelVisible ? 'Hide properties' : 'Show properties' }}
+            </button>
             <button mat-icon-button (click)="zoomIn()" title="Zoom in" matTooltip="Zoom in">
               <mat-icon>zoom_in</mat-icon>
             </button>
@@ -178,7 +188,7 @@ interface BpmnElement {
           </div>
         </div>
       </main>
-            <aside class="properties-sidebar">
+      <aside class="properties-sidebar" [class.hidden]="!isPropertiesPanelVisible">
         <div class="properties-header">
           <h3>Properties</h3>
         </div>
@@ -216,6 +226,7 @@ interface BpmnElement {
       height: calc(100vh - 64px);
       background: #f8fafc;
       overflow: hidden;
+      gap: 0;
     }
 
     /* Sidebar styles */
@@ -479,13 +490,15 @@ interface BpmnElement {
       flex-direction: column;
       overflow: hidden;
       min-width: 0;
+      padding: 12px 12px 0;
+      gap: 12px;
     }
 
     .canvas-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 24px;
+      padding: 12px 16px;
       background: white;
       border-bottom: 1px solid #e2e8f0;
     }
@@ -520,6 +533,8 @@ interface BpmnElement {
       display: flex;
       gap: 8px;
       align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .divider {
@@ -532,17 +547,22 @@ interface BpmnElement {
     .deploy-btn {
       border-radius: 12px;
     }
+    .properties-toggle-btn {
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+
 
 
     .canvas-container {
       flex: 1;
       position: relative;
       background: white;
-      margin: 20px;
-      margin-bottom: 0;
+      margin: 0;
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #e2e8f0;
     }
 
     .bpmn-canvas {
@@ -574,7 +594,8 @@ interface BpmnElement {
       align-items: center;
       padding: 12px 24px;
       background: white;
-      border-top: 1px solid #e2e8f0;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px 12px 0 0;
       margin-top: auto;
     }
 
@@ -603,7 +624,7 @@ interface BpmnElement {
       color: #94a3b8;
       font-size: 12px;
     }
-          .properties-sidebar {
+    .properties-sidebar {
       width: 320px;
       background: white;
       border-left: 1px solid #e2e8f0;
@@ -612,6 +633,16 @@ interface BpmnElement {
       padding: 16px;
       gap: 12px;
       overflow-y: auto;
+       transition: width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+    }
+
+    .properties-sidebar.hidden {
+      width: 0;
+      padding-left: 0;
+      padding-right: 0;
+      border-left: none;
+      opacity: 0;
+      overflow: hidden;
     }
 
     .properties-header h3 {
@@ -663,14 +694,29 @@ interface BpmnElement {
 
       .canvas-area {
         height: 50%;
+        padding: 8px 8px 0;
       }
       .properties-sidebar {
         width: 100%;
         border-left: none;
         border-top: 1px solid #e2e8f0;
       }
+      .properties-sidebar.hidden {
+        width: 100%;
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-top: none;
+      }
       .canvas-actions button span {
         display: none;
+      }
+      .canvas-footer {
+        padding: 10px 12px;
+      }
+      .footer-links {
+        gap: 12px;
+        flex-wrap: wrap;
       }
     }
   `]
@@ -688,6 +734,7 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
   isLoading = false;
   isDeploying = false;
   isSidebarCollapsed = false;
+  isPropertiesPanelVisible = false;
   currentModel = signal<BpmnModel | null>(null);
   messages = signal<Array<{ role: 'user' | 'assistant', content: string, timestamp: Date }>>([]);
   historyCount = signal<number>(0);
@@ -716,6 +763,7 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
     if (this.canvasRef) {
       this.modeler = new BpmnModeler({ container: this.canvasRef.nativeElement });
       this.bindSelectionEvents();
+      this.bindAutoSaveEvents();
     }
   }
 
@@ -731,41 +779,53 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
   }
 
+  togglePropertiesPanel(): void {
+    this.isPropertiesPanelVisible = !this.isPropertiesPanelVisible;
+  }
+
+
   selectExample(example: string): void {
     this.promptControl.setValue(example);
   }
 
   async generate(): Promise<void> {
-    if (!this.promptControl.value || this.promptControl.value.length < 10) {
-      this.snackBar.open('Minimum 10 characters required', 'Close', { duration: 3000 });
-      return;
-    }
+  if (!this.promptControl.value || this.promptControl.value.length < 10) {
+    this.snackBar.open('Minimum 10 characters required', 'Close', { duration: 3000 });
+    return;
+  }
 
-    const userMessage = this.promptControl.value;
-    this.addMessage('user', userMessage);
-    this.promptControl.reset();
-    this.isLoading = true;
+  const userMessage = this.promptControl.value;
+  this.addMessage('user', userMessage);
+  this.promptControl.reset();
+  this.isLoading = true;
 
-    setTimeout(async () => {
+  this.bpmnService.generateBpmn(userMessage).subscribe({
+    next: async (xml: string) => {
       const model: BpmnModel = {
         id: crypto.randomUUID(),
         name: `Process ${new Date().toLocaleDateString()}`,
         description: userMessage,
-        createdAt: new Date().toISOString(),
+        date: new Date(),
         status: 'Generated',
-        xml: this.generateDynamicXml(userMessage)
+        xml
       };
 
       this.currentModel.set(model);
       this.bpmnService.setCurrentModel(model);
       this.historyService.addToHistory(model);
-      
-      await this.loadDiagram(model.xml);
+
+      await this.loadDiagram(xml);
       this.addMessage('assistant', `✅ BPMN diagram generated and saved to history! You can view it anytime in the History section.`);
       this.isLoading = false;
       setTimeout(() => this.scrollToBottom(), 100);
-    }, 2000);
-  }
+    },
+    error: (err) => {
+      console.error('Generation error:', err);
+      this.addMessage('assistant', `❌ Error generating BPMN diagram. Please check that the agent and Spring Boot are running.`);
+      this.isLoading = false;
+    }
+  });
+}
 
   private async loadDiagram(xml: string): Promise<void> {
     if (!this.modeler) return;
@@ -909,7 +969,8 @@ resetZoom(): void {
         this.selectedElementName = '';
         return;
       }
-
+      
+      this.isPropertiesPanelVisible = true;
       this.refreshSelectedElement(newSelection[0]);
     });
   }
@@ -933,583 +994,25 @@ resetZoom(): void {
 
     this.currentModel.set(updatedModel);
     this.bpmnService.setCurrentModel(updatedModel);
+    this.historyService.updateHistoryItem(updatedModel.id, { xml: result.xml });
 
     return result.xml;
   }
+  private bindAutoSaveEvents(): void {
+    const eventBus = this.modeler?.get('eventBus') as {
+      on: (event: string, handler: () => void) => void;
+    };
 
+    eventBus?.on('commandStack.changed', async () => {
+      const model = this.currentModel();
+      if (!model || !this.modeler) return;
 
-  private generateDynamicXml(prompt: string): string {
+      const result = (await this.modeler.saveXML({ format: true })) as { xml: string };
+      const updatedModel = { ...model, xml: result.xml };
 
-const text = prompt.toLowerCase();
-
-    if (
-      text.includes('portabilité') ||
-      text.includes('portabilite') ||
-      text.includes('portability') ||
-      text.includes('ligne') ||
-      text.includes('line activation')
-    ) {
-      return this.getPortabilityXml();
-    }
-
-    if (
-      text.includes('commande') ||
-      text.includes('order') ||
-      text.includes('paiement') ||
-      text.includes('payment') ||
-      text.includes('expédier') ||
-      text.includes('expedier') ||
-      text.includes('shipping')
-    ) {
-      return this.getOrderXml();
-    }
-
-    if (
-      text.includes('abonnement') ||
-      text.includes('subscription') ||
-      text.includes('renew') ||
-      text.includes('renouvel') ||
-      text.includes('incident') ||
-      text.includes('expiry') ||
-      text.includes('expire')
-    ) {
-      return this.getIncidentXml();
-    }
-
-    return this.getDefaultXml();
+      this.currentModel.set(updatedModel);
+      this.bpmnService.setCurrentModel(updatedModel);
+      this.historyService.updateHistoryItem(model.id, { xml: result.xml });
+    });
   }
-  private getDefaultXml(): string {
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_Default" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_Default" name="Generic Process" isExecutable="true">
-    <bpmn:startEvent id="Start_Default" name="Start">
-      <bpmn:outgoing>Flow_D1</bpmn:outgoing>
-    </bpmn:startEvent>
- <bpmn:task id="Task_Default" name="Review request">
-      <bpmn:incoming>Flow_D1</bpmn:incoming>
-      <bpmn:outgoing>Flow_D2</bpmn:outgoing>
-    </bpmn:task>
-    <bpmn:endEvent id="End_Default" name="End">
-      <bpmn:incoming>Flow_D2</bpmn:incoming>
-    </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_D1" sourceRef="Start_Default" targetRef="Task_Default"/>
-    <bpmn:sequenceFlow id="Flow_D2" sourceRef="Task_Default" targetRef="End_Default"/>
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_Default">
-    <bpmndi:BPMNPlane id="BPMNPlane_Default" bpmnElement="Process_Default">
-      <bpmndi:BPMNShape id="Start_Default_di" bpmnElement="Start_Default"><dc:Bounds x="180" y="160" width="36" height="36"/></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_Default_di" bpmnElement="Task_Default"><dc:Bounds x="280" y="138" width="120" height="80"/></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_Default_di" bpmnElement="End_Default"><dc:Bounds x="470" y="160" width="36" height="36"/></bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_D1_di" bpmnElement="Flow_D1"><di:waypoint x="216" y="178"/><di:waypoint x="280" y="178"/></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_D2_di" bpmnElement="Flow_D2"><di:waypoint x="400" y="178"/><di:waypoint x="470" y="178"/></bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>`;
-  }
-// ==========================
-// PORTABILITY (TON XML ACTUEL)
-// ==========================
-private getPortabilityXml(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions
-  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
-  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
-  id="Definitions_Portabilite"
-  targetNamespace="http://bpmn.io/schema/bpmn"
-  exporter="Camunda Modeler"
-  exporterVersion="5.0.0"
-  modeler:executionPlatform="Camunda Cloud"
-  modeler:executionPlatformVersion="8.0.0">
-
-  <bpmn:process id="Process_Portabilite" name="Portabilité Client" isExecutable="true">
-
-    <bpmn:startEvent id="Start_Port" name="Demande de portabilité reçue">
-      <bpmn:outgoing>Flow_P1</bpmn:outgoing>
-    </bpmn:startEvent>
-
-    <bpmn:serviceTask id="Task_VerifEligibilite" name="Vérifier l'éligibilité">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="verifier-eligibilite" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:output source="=eligible" target="eligible"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_P1</bpmn:incoming>
-      <bpmn:outgoing>Flow_P2</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:exclusiveGateway id="GW_Eligible" name="Client éligible ?">
-      <bpmn:incoming>Flow_P2</bpmn:incoming>
-      <bpmn:outgoing>Flow_P_Oui</bpmn:outgoing>
-      <bpmn:outgoing>Flow_P_Non</bpmn:outgoing>
-    </bpmn:exclusiveGateway>
-
-    <bpmn:serviceTask id="Task_ActiverLigne" name="Activer la ligne">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="activer-ligne" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:output source="=activationCode" target="activationCode"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_P_Oui</bpmn:incoming>
-      <bpmn:outgoing>Flow_P3</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:sendTask id="Task_NotifSucces" name="Notifier le client">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="notifier-client" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:input source="=activationCode" target="activationCode"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_P3</bpmn:incoming>
-      <bpmn:outgoing>Flow_P4</bpmn:outgoing>
-    </bpmn:sendTask>
-
-    <bpmn:serviceTask id="Task_RejeterPort" name="Rejeter la demande">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="rejeter-demande" retries="1"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:input source="=motifRejet" target="motifRejet"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_P_Non</bpmn:incoming>
-      <bpmn:outgoing>Flow_P5</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:endEvent id="End_PortOK" name="Portabilité activée">
-      <bpmn:incoming>Flow_P4</bpmn:incoming>
-    </bpmn:endEvent>
-
-    <bpmn:endEvent id="End_PortRejet" name="Demande rejetée">
-      <bpmn:incoming>Flow_P5</bpmn:incoming>
-    </bpmn:endEvent>
-
-    <bpmn:sequenceFlow id="Flow_P1" sourceRef="Start_Port" targetRef="Task_VerifEligibilite"/>
-    <bpmn:sequenceFlow id="Flow_P2" sourceRef="Task_VerifEligibilite" targetRef="GW_Eligible"/>
-    <bpmn:sequenceFlow id="Flow_P_Oui" name="Oui" sourceRef="GW_Eligible" targetRef="Task_ActiverLigne">
-      <bpmn:conditionExpression>=eligible = true</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_P_Non" name="Non" sourceRef="GW_Eligible" targetRef="Task_RejeterPort">
-      <bpmn:conditionExpression>=eligible = false</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_P3" sourceRef="Task_ActiverLigne" targetRef="Task_NotifSucces"/>
-    <bpmn:sequenceFlow id="Flow_P4" sourceRef="Task_NotifSucces" targetRef="End_PortOK"/>
-    <bpmn:sequenceFlow id="Flow_P5" sourceRef="Task_RejeterPort" targetRef="End_PortRejet"/>
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Portabilite">
-      <bpmndi:BPMNShape id="Start_Port_di" bpmnElement="Start_Port">
-        <dc:Bounds x="152" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="126" y="275" width="89" height="27"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_VerifEligibilite_di" bpmnElement="Task_VerifEligibilite">
-        <dc:Bounds x="250" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="GW_Eligible_di" bpmnElement="GW_Eligible" isMarkerVisible="true">
-        <dc:Bounds x="415" y="225" width="50" height="50"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="398" y="282" width="85" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ActiverLigne_di" bpmnElement="Task_ActiverLigne">
-        <dc:Bounds x="530" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_NotifSucces_di" bpmnElement="Task_NotifSucces">
-        <dc:Bounds x="700" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_RejeterPort_di" bpmnElement="Task_RejeterPort">
-        <dc:Bounds x="530" y="360" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_PortOK_di" bpmnElement="End_PortOK">
-        <dc:Bounds x="872" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="848" y="275" width="84" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_PortRejet_di" bpmnElement="End_PortRejet">
-        <dc:Bounds x="872" y="382" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="851" y="425" width="79" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_P1_di" bpmnElement="Flow_P1">
-        <di:waypoint x="188" y="250"/><di:waypoint x="250" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_P2_di" bpmnElement="Flow_P2">
-        <di:waypoint x="350" y="250"/><di:waypoint x="415" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_P_Oui_di" bpmnElement="Flow_P_Oui">
-        <di:waypoint x="465" y="250"/><di:waypoint x="530" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_P_Non_di" bpmnElement="Flow_P_Non">
-        <di:waypoint x="440" y="275"/><di:waypoint x="440" y="400"/><di:waypoint x="530" y="400"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_P3_di" bpmnElement="Flow_P3">
-        <di:waypoint x="630" y="250"/><di:waypoint x="700" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_P4_di" bpmnElement="Flow_P4">
-        <di:waypoint x="800" y="250"/><di:waypoint x="872" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_P5_di" bpmnElement="Flow_P5">
-        <di:waypoint x="630" y="400"/><di:waypoint x="872" y="400"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>`;
-}
-
-
-// ==========================
-// ORDER PROCESS
-// ==========================
-private getOrderXml(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions
-  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
-  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
-  id="Definitions_Commande"
-  targetNamespace="http://bpmn.io/schema/bpmn"
-  exporter="Camunda Modeler"
-  exporterVersion="5.0.0"
-  modeler:executionPlatform="Camunda Cloud"
-  modeler:executionPlatformVersion="8.0.0">
-
-  <bpmn:process id="Process_Commande" name="Commande et Expédition" isExecutable="true">
-
-    <bpmn:startEvent id="Start_Cmd" name="Commande passée">
-      <bpmn:outgoing>Flow_C1</bpmn:outgoing>
-    </bpmn:startEvent>
-
-    <bpmn:serviceTask id="Task_ValiderPaiement" name="Valider le paiement">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="valider-paiement" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=orderId" target="orderId"/>
-          <zeebe:input source="=montant" target="montant"/>
-          <zeebe:output source="=paiementValide" target="paiementValide"/>
-          <zeebe:output source="=motifEchec" target="motifEchec"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_C1</bpmn:incoming>
-      <bpmn:outgoing>Flow_C2</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:exclusiveGateway id="GW_Paiement" name="Paiement validé ?">
-      <bpmn:incoming>Flow_C2</bpmn:incoming>
-      <bpmn:outgoing>Flow_C_OK</bpmn:outgoing>
-      <bpmn:outgoing>Flow_C_KO</bpmn:outgoing>
-    </bpmn:exclusiveGateway>
-
-    <bpmn:serviceTask id="Task_PreparerColis" name="Préparer le colis">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="preparer-colis" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=orderId" target="orderId"/>
-          <zeebe:output source="=colisId" target="colisId"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_C_OK</bpmn:incoming>
-      <bpmn:outgoing>Flow_C3</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:serviceTask id="Task_ExpedierProduit" name="Expédier le produit">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="expedier-produit" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=colisId" target="colisId"/>
-          <zeebe:input source="=adresseLivraison" target="adresseLivraison"/>
-          <zeebe:output source="=trackingNumber" target="trackingNumber"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_C3</bpmn:incoming>
-      <bpmn:outgoing>Flow_C4</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:sendTask id="Task_NotifExpedition" name="Notifier l'expédition">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="notifier-expedition" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=orderId" target="orderId"/>
-          <zeebe:input source="=trackingNumber" target="trackingNumber"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_C4</bpmn:incoming>
-      <bpmn:outgoing>Flow_C5</bpmn:outgoing>
-    </bpmn:sendTask>
-
-    <bpmn:sendTask id="Task_NotifEchec" name="Notifier l'échec du paiement">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="notifier-echec-paiement" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=orderId" target="orderId"/>
-          <zeebe:input source="=motifEchec" target="motifEchec"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_C_KO</bpmn:incoming>
-      <bpmn:outgoing>Flow_C6</bpmn:outgoing>
-    </bpmn:sendTask>
-
-    <bpmn:endEvent id="End_CmdOK" name="Commande expédiée">
-      <bpmn:incoming>Flow_C5</bpmn:incoming>
-    </bpmn:endEvent>
-
-    <bpmn:endEvent id="End_CmdKO" name="Commande annulée">
-      <bpmn:incoming>Flow_C6</bpmn:incoming>
-    </bpmn:endEvent>
-
-    <bpmn:sequenceFlow id="Flow_C1" sourceRef="Start_Cmd" targetRef="Task_ValiderPaiement"/>
-    <bpmn:sequenceFlow id="Flow_C2" sourceRef="Task_ValiderPaiement" targetRef="GW_Paiement"/>
-    <bpmn:sequenceFlow id="Flow_C_OK" name="Oui" sourceRef="GW_Paiement" targetRef="Task_PreparerColis">
-      <bpmn:conditionExpression>=paiementValide = true</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_C_KO" name="Non" sourceRef="GW_Paiement" targetRef="Task_NotifEchec">
-      <bpmn:conditionExpression>=paiementValide = false</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_C3" sourceRef="Task_PreparerColis" targetRef="Task_ExpedierProduit"/>
-    <bpmn:sequenceFlow id="Flow_C4" sourceRef="Task_ExpedierProduit" targetRef="Task_NotifExpedition"/>
-    <bpmn:sequenceFlow id="Flow_C5" sourceRef="Task_NotifExpedition" targetRef="End_CmdOK"/>
-    <bpmn:sequenceFlow id="Flow_C6" sourceRef="Task_NotifEchec" targetRef="End_CmdKO"/>
-
-  </bpmn:process>
-
-  <bpmndi:BPMNDiagram id="BPMNDiagram_Cmd">
-    <bpmndi:BPMNPlane id="BPMNPlane_Cmd" bpmnElement="Process_Commande">
-      <bpmndi:BPMNShape id="Start_Cmd_di" bpmnElement="Start_Cmd">
-        <dc:Bounds x="152" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="135" y="275" width="71" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ValiderPaiement_di" bpmnElement="Task_ValiderPaiement">
-        <dc:Bounds x="250" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="GW_Paiement_di" bpmnElement="GW_Paiement" isMarkerVisible="true">
-        <dc:Bounds x="415" y="225" width="50" height="50"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="398" y="282" width="85" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_PreparerColis_di" bpmnElement="Task_PreparerColis">
-        <dc:Bounds x="530" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ExpedierProduit_di" bpmnElement="Task_ExpedierProduit">
-        <dc:Bounds x="700" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_NotifExpedition_di" bpmnElement="Task_NotifExpedition">
-        <dc:Bounds x="870" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_NotifEchec_di" bpmnElement="Task_NotifEchec">
-        <dc:Bounds x="530" y="360" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_CmdOK_di" bpmnElement="End_CmdOK">
-        <dc:Bounds x="1042" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="1018" y="275" width="84" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_CmdKO_di" bpmnElement="End_CmdKO">
-        <dc:Bounds x="872" y="382" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="848" y="425" width="84" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_C1_di" bpmnElement="Flow_C1">
-        <di:waypoint x="188" y="250"/><di:waypoint x="250" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C2_di" bpmnElement="Flow_C2">
-        <di:waypoint x="350" y="250"/><di:waypoint x="415" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C_OK_di" bpmnElement="Flow_C_OK">
-        <di:waypoint x="465" y="250"/><di:waypoint x="530" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C_KO_di" bpmnElement="Flow_C_KO">
-        <di:waypoint x="440" y="275"/><di:waypoint x="440" y="400"/><di:waypoint x="530" y="400"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C3_di" bpmnElement="Flow_C3">
-        <di:waypoint x="630" y="250"/><di:waypoint x="700" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C4_di" bpmnElement="Flow_C4">
-        <di:waypoint x="800" y="250"/><di:waypoint x="870" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C5_di" bpmnElement="Flow_C5">
-        <di:waypoint x="970" y="250"/><di:waypoint x="1042" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_C6_di" bpmnElement="Flow_C6">
-        <di:waypoint x="630" y="400"/><di:waypoint x="872" y="400"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>`;
-}
-// ==========================
-// INCIDENT PROCESS
-// ==========================
-private getIncidentXml(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions
-  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
-  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
-  id="Definitions_Abonnement"
-  targetNamespace="http://bpmn.io/schema/bpmn"
-  exporter="Camunda Modeler"
-  exporterVersion="5.0.0"
-  modeler:executionPlatform="Camunda Cloud"
-  modeler:executionPlatformVersion="8.0.0">
-
-  <bpmn:process id="Process_Abonnement" name="Expiration Abonnement" isExecutable="true">
-
-    <bpmn:startEvent id="Start_Abo" name="Abonnement expiré">
-      <bpmn:outgoing>Flow_A1</bpmn:outgoing>
-    </bpmn:startEvent>
-
-    <bpmn:sendTask id="Task_EnvoyerRappel" name="Envoyer un rappel">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="envoyer-rappel" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:input source="=abonnementId" target="abonnementId"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_A1</bpmn:incoming>
-      <bpmn:outgoing>Flow_A2</bpmn:outgoing>
-    </bpmn:sendTask>
-
-    <bpmn:intermediateCatchEvent id="Timer_Attente" name="Attendre 48h">
-      <bpmn:incoming>Flow_A2</bpmn:incoming>
-      <bpmn:outgoing>Flow_A3</bpmn:outgoing>
-      <bpmn:timerEventDefinition id="TimerDef_1">
-        <bpmn:timeDuration>PT48H</bpmn:timeDuration>
-      </bpmn:timerEventDefinition>
-    </bpmn:intermediateCatchEvent>
-
-    <bpmn:serviceTask id="Task_VerifRenouvellement" name="Vérifier le renouvellement">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="verifier-renouvellement" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=abonnementId" target="abonnementId"/>
-          <zeebe:output source="=renouvelé" target="renouvelé"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_A3</bpmn:incoming>
-      <bpmn:outgoing>Flow_A4</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:exclusiveGateway id="GW_Renouvele" name="Abonnement renouvelé ?">
-      <bpmn:incoming>Flow_A4</bpmn:incoming>
-      <bpmn:outgoing>Flow_A_Oui</bpmn:outgoing>
-      <bpmn:outgoing>Flow_A_Non</bpmn:outgoing>
-    </bpmn:exclusiveGateway>
-
-    <bpmn:serviceTask id="Task_DesactiverService" name="Désactiver le service">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="desactiver-service" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:input source="=abonnementId" target="abonnementId"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_A_Non</bpmn:incoming>
-      <bpmn:outgoing>Flow_A5</bpmn:outgoing>
-    </bpmn:serviceTask>
-
-    <bpmn:sendTask id="Task_NotifDesactivation" name="Notifier la désactivation">
-      <bpmn:extensionElements>
-        <zeebe:taskDefinition type="notifier-desactivation" retries="3"/>
-        <zeebe:ioMapping>
-          <zeebe:input source="=clientId" target="clientId"/>
-          <zeebe:input source="=abonnementId" target="abonnementId"/>
-        </zeebe:ioMapping>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_A5</bpmn:incoming>
-      <bpmn:outgoing>Flow_A6</bpmn:outgoing>
-    </bpmn:sendTask>
-
-    <bpmn:endEvent id="End_AboActif" name="Abonnement actif">
-      <bpmn:incoming>Flow_A_Oui</bpmn:incoming>
-    </bpmn:endEvent>
-
-    <bpmn:endEvent id="End_AboDesactive" name="Service désactivé">
-      <bpmn:incoming>Flow_A6</bpmn:incoming>
-    </bpmn:endEvent>
-
-    <bpmn:sequenceFlow id="Flow_A1" sourceRef="Start_Abo" targetRef="Task_EnvoyerRappel"/>
-    <bpmn:sequenceFlow id="Flow_A2" sourceRef="Task_EnvoyerRappel" targetRef="Timer_Attente"/>
-    <bpmn:sequenceFlow id="Flow_A3" sourceRef="Timer_Attente" targetRef="Task_VerifRenouvellement"/>
-    <bpmn:sequenceFlow id="Flow_A4" sourceRef="Task_VerifRenouvellement" targetRef="GW_Renouvele"/>
-    <bpmn:sequenceFlow id="Flow_A_Oui" name="Oui" sourceRef="GW_Renouvele" targetRef="End_AboActif">
-      <bpmn:conditionExpression>=renouvelé = true</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_A_Non" name="Non" sourceRef="GW_Renouvele" targetRef="Task_DesactiverService">
-      <bpmn:conditionExpression>=renouvelé = false</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_A5" sourceRef="Task_DesactiverService" targetRef="Task_NotifDesactivation"/>
-    <bpmn:sequenceFlow id="Flow_A6" sourceRef="Task_NotifDesactivation" targetRef="End_AboDesactive"/>
-
-  </bpmn:process>
-
-  <bpmndi:BPMNDiagram id="BPMNDiagram_Abo">
-    <bpmndi:BPMNPlane id="BPMNPlane_Abo" bpmnElement="Process_Abonnement">
-      <bpmndi:BPMNShape id="Start_Abo_di" bpmnElement="Start_Abo">
-        <dc:Bounds x="152" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="130" y="275" width="81" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_EnvoyerRappel_di" bpmnElement="Task_EnvoyerRappel">
-        <dc:Bounds x="250" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Timer_Attente_di" bpmnElement="Timer_Attente">
-        <dc:Bounds x="412" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="396" y="275" width="68" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_VerifRenouvellement_di" bpmnElement="Task_VerifRenouvellement">
-        <dc:Bounds x="510" y="210" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="GW_Renouvele_di" bpmnElement="GW_Renouvele" isMarkerVisible="true">
-        <dc:Bounds x="675" y="225" width="50" height="50"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="655" y="282" width="90" height="27"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DesactiverService_di" bpmnElement="Task_DesactiverService">
-        <dc:Bounds x="790" y="360" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_NotifDesactivation_di" bpmnElement="Task_NotifDesactivation">
-        <dc:Bounds x="960" y="360" width="100" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_AboActif_di" bpmnElement="End_AboActif">
-        <dc:Bounds x="962" y="232" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="940" y="275" width="80" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_AboDesactive_di" bpmnElement="End_AboDesactive">
-        <dc:Bounds x="1132" y="382" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="1108" y="425" width="84" height="14"/></bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_A1_di" bpmnElement="Flow_A1">
-        <di:waypoint x="188" y="250"/><di:waypoint x="250" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A2_di" bpmnElement="Flow_A2">
-        <di:waypoint x="350" y="250"/><di:waypoint x="412" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A3_di" bpmnElement="Flow_A3">
-        <di:waypoint x="448" y="250"/><di:waypoint x="510" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A4_di" bpmnElement="Flow_A4">
-        <di:waypoint x="610" y="250"/><di:waypoint x="675" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A_Oui_di" bpmnElement="Flow_A_Oui">
-        <di:waypoint x="725" y="250"/><di:waypoint x="962" y="250"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A_Non_di" bpmnElement="Flow_A_Non">
-        <di:waypoint x="700" y="275"/><di:waypoint x="700" y="400"/><di:waypoint x="790" y="400"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A5_di" bpmnElement="Flow_A5">
-        <di:waypoint x="890" y="400"/><di:waypoint x="960" y="400"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_A6_di" bpmnElement="Flow_A6">
-        <di:waypoint x="1060" y="400"/><di:waypoint x="1132" y="400"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>`;
-}
 }

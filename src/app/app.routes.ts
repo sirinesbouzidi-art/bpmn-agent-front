@@ -21,6 +21,11 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/history/history.component').then((m) => m.HistoryComponent)
   },
   {
+    path: 'viewer',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/bpmn-viewer/viewer.component').then((m) => m.ViewerComponent)
+  },
+  {
     path: 'about',
     canActivate: [authGuard],
     loadComponent: () => import('./features/about/about.component').then((m) => m.AboutComponent)

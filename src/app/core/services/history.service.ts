@@ -42,7 +42,7 @@ export class HistoryService {
         id: 'mock-1',
         name: 'Portabilité Client',
         description: 'Vérification éligibilité puis activation ligne.',
-        createdAt: '2026-01-05T10:00:00.000Z',
+        date: new Date('2026-01-05T10:00:00.000Z'),
         status: 'Validated',
         xml: mockXml
       },
@@ -50,7 +50,7 @@ export class HistoryService {
         id: 'mock-2',
         name: 'Gestion Échec Paiement',
         description: 'Notification client et suspension de service.',
-        createdAt: '2026-01-12T10:00:00.000Z',
+        date: new Date('2026-01-12T10:00:00.000Z'),
         status: 'Generated',
         xml: mockXml
       },
@@ -58,7 +58,7 @@ export class HistoryService {
         id: 'mock-3',
         name: 'Assignation Incident N1',
         description: 'Assignation automatique au support niveau 1.',
-        createdAt: '2026-01-18T10:00:00.000Z',
+        date: new Date('2026-01-18T10:00:00.000Z'),
         status: 'Draft',
         xml: mockXml
       }
@@ -72,6 +72,9 @@ export class HistoryService {
   getHistory(): BpmnModel[] {
     return this.history();
   }
+  getById(id: string): BpmnModel | undefined {
+    return this.history().find(model => model.id === id);
+  }
 
   addToHistory(model: BpmnModel): void {
     const currentHistory = this.history();
@@ -84,7 +87,22 @@ export class HistoryService {
       console.log('✅ Model added to history:', model.name);
     }
   }
+  updateHistoryItem(id: string, updates: Partial<BpmnModel>): void {
+    const updatedHistory = this.history().map(model => {
+      if (model.id !== id) {
+        return model;
+      }
 
+      return {
+        ...model,
+        ...updates
+      };
+    });
+
+    this.history.set(updatedHistory);
+    this.historySubject.next(updatedHistory);
+    this.saveToLocalStorage();
+  }
   removeFromHistory(id: string): void {
     const updatedHistory = this.history().filter(model => model.id !== id);
     this.history.set(updatedHistory);
@@ -112,7 +130,11 @@ export class HistoryService {
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
+        const parsed = (JSON.parse(saved) as Array<BpmnModel & { createdAt?: string }>).map(item => ({
+        ...item,
+        xml: item.xml || '',
+        date: new Date(item.date ?? item.createdAt ?? new Date().toISOString())
+      }));
         this.history.set(parsed);
         this.historySubject.next(parsed);
         console.log('📦 History loaded:', this.history().length, 'items');

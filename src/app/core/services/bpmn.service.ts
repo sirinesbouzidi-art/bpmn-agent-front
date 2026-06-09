@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, catchError, throwError } from 'rxjs';
+import { Observable, catchError, switchMap, throwError } from 'rxjs';
 import { BpmnModel } from '../../shared/models/bpmn.model';
 
 export interface DeployResponse {
@@ -63,4 +63,21 @@ export class BpmnService {
     link.click();
     window.URL.revokeObjectURL(url);
   }
+  private readonly agentUrl = 'http://localhost:8000';
+
+generateBpmn(prompt: string): Observable<string> {
+  return this.http.post<any>(`${this.agentUrl}/generate`, { prompt }).pipe(
+    switchMap((bpmnJson) =>
+      this.http.post(
+        'http://localhost:8080/generate-bpmn-xml',
+        bpmnJson,
+        { 
+          headers: new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/xml' }),
+          responseType: 'text' 
+        }
+      )
+    ),
+    catchError((error) => throwError(() => error))
+  );
+}
 }

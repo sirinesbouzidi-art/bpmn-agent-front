@@ -53,9 +53,9 @@ import { BpmnModel } from '../../shared/models/bpmn.model';
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="createdAt">
+            <ng-container matColumnDef="date">
               <th mat-header-cell *matHeaderCellDef>Date</th>
-              <td mat-cell *matCellDef="let model">{{ model.createdAt | date:'medium' }}</td>
+              <td mat-cell *matCellDef="let model">{{ model.date | date:'medium' }}</td>
             </ng-container>
 
             <ng-container matColumnDef="status">
@@ -115,7 +115,7 @@ export class HistoryComponent implements OnInit, OnDestroy {
 
   models: BpmnModel[] = [];
   private historySubscription?: Subscription;
-  readonly displayedColumns: string[] = ['name', 'description', 'createdAt', 'status', 'actions'];
+  readonly displayedColumns: string[] = ['name', 'description', 'date', 'status', 'actions'];
 
   ngOnInit(): void {
     this.models = this.historyService.getHistory();
@@ -134,8 +134,11 @@ export class HistoryComponent implements OnInit, OnDestroy {
   }
 
   view(model: BpmnModel): void {
-    this.bpmnService.setCurrentModel(model);
-    this.router.navigate(['/home']);
+    this.bpmnService.setCurrentModel({
+      ...model,
+      xml: model.xml
+    });
+    this.router.navigate(['/viewer']);
     this.snackBar.open('Opening diagram...', 'Close', { duration: 2000 });
   }
 
