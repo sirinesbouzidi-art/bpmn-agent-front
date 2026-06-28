@@ -64,20 +64,31 @@ export class BpmnService {
     window.URL.revokeObjectURL(url);
   }
   private readonly agentUrl = 'http://localhost:8000';
+  private _lastBpmnJson: any = null;
 
-generateBpmn(prompt: string): Observable<string> {
-  return this.http.post<any>(`${this.agentUrl}/generate`, { prompt }).pipe(
-    switchMap((bpmnJson) =>
-      this.http.post(
-        'http://localhost:8080/generate-bpmn-xml',
-        bpmnJson,
-        { 
-          headers: new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/xml' }),
-          responseType: 'text' 
-        }
-      )
-    ),
-    catchError((error) => throwError(() => error))
-  );
-}
+  get lastBpmnJson(): any {
+    return this._lastBpmnJson;
+  }
+
+  generateBpmn(prompt: string, currentBpmn?: any): Observable<string> {
+    const body: any = { prompt };
+    if (currentBpmn) {
+      body.current_bpmn = currentBpmn;
+    }
+
+    return this.http.post<any>(`${this.agentUrl}/generate`, body).pipe(
+      switchMap((bpmnJson) => {
+        this._lastBpmnJson = bpmnJson;
+        return this.http.post(
+          'http://localhost:8080/generate-bpmn-xml',
+          bpmnJson,
+          {
+            headers: new HttpHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/xml' }),
+            responseType: 'text'
+          }
+        );
+      }),
+      catchError((error) => throwError(() => error))
+    );
+  }
 }

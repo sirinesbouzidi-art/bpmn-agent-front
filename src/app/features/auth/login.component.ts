@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,7 +15,6 @@ import { AuthService } from '../../core/services/auth.service';
     CommonModule,
     ReactiveFormsModule,
     RouterLink,
-    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
@@ -24,348 +22,183 @@ import { AuthService } from '../../core/services/auth.service';
   ],
   template: `
     <div class="login-wrapper">
-      <div class="glass-board">
-        <!-- LEFT PANEL -->
-        <section class="brand-panel">
-          <div class="brand-content">
-            <div class="brand-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <h2>BPMN STUDIO</h2>
-            <div class="tagline">
-              <span>Transform your business processes</span>
-              <span>with AI-powered automation</span>
-            </div>
-            <div class="features">
-              <div class="feature-item">
-                <mat-icon>check_circle</mat-icon>
-                <span>Intelligent Process Generation</span>
-              </div>
-              <div class="feature-item">
-                <mat-icon>check_circle</mat-icon>
-                <span>Real-time BPMN Visualization</span>
-              </div>
-              <div class="feature-item">
-                <mat-icon>check_circle</mat-icon>
-                <span>Export to XML & SVG</span>
-              </div>
-            </div>
+
+      <!-- LEFT: full-bleed illustration -->
+      <section class="illustration-panel">
+        <div class="illustration-bg"></div>
+      </section>
+
+      <!-- RIGHT: clean form, no floating card -->
+      <section class="form-panel">
+        <div class="form-content">
+
+          <div class="brand">
+            <mat-icon>insights</mat-icon>
+            <span>BPMN Telecom Studio</span>
           </div>
-        </section>
 
-        <!-- RIGHT PANEL -->
-        <section class="form-panel">
-          <mat-card class="login-card">
-            <div class="register-top-link">
-              <p>New to BPMN Studio? <a routerLink="/register">Create an account</a></p>
-            </div>
+          <h1>login </h1>
+          <p class="subtitle">
+            Welcome to BPMN Telecom Studio.<br />
+            Use the account provided by your administrator.
+          </p>
 
-            <div class="title-wrap">
-              <span class="pill">Welcome back</span>
-              <h1>Sign in</h1>
-              <p>Use one of the mock Bouygues Telecom accounts.</p>
-            </div>
+          <form [formGroup]="loginForm" (ngSubmit)="submit()">
+            <label class="field-label">E-mail</label>
+            <mat-form-field appearance="outline" class="full-width">
+              <input matInput type="email" formControlName="email" placeholder="your.email@bouygues.com" />
+            </mat-form-field>
 
-            <form [formGroup]="loginForm" (ngSubmit)="submit()">
-              <mat-form-field appearance="outline">
-                <mat-label>Email</mat-label>
-                <input matInput type="email" formControlName="email" />
-                <mat-icon matSuffix>mail</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Password</mat-label>
-                <input matInput type="password" formControlName="password" />
-                <mat-icon matSuffix>lock</mat-icon>
-              </mat-form-field>
-
-              <button mat-flat-button type="submit" [disabled]="loginForm.invalid">
-                Login
+            <label class="field-label">Password</label>
+            <mat-form-field appearance="outline" class="full-width">
+              <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Password" />
+              <button type="button" mat-icon-button matSuffix (click)="hidePassword = !hidePassword" tabindex="-1">
+                <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
+            </mat-form-field>
 
-              <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
-            </form>
+            <button mat-flat-button type="submit" class="submit-btn" [disabled]="loginForm.invalid">
+              Sign in
+            </button>
 
-            
-          </mat-card>
-        </section>
-      </div>
+            <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+          </form>
+
+        </div>
+      </section>
     </div>
   `,
   styles: [`
-    /* BACKGROUND */
     .login-wrapper {
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f8fafc;
-      padding: 20px;
-    }
-
-    /* MAIN CONTAINER */
-    .glass-board {
-      width: min(1100px, 95%);
       display: grid;
-      grid-template-columns: 1fr 1.1fr;
-      border-radius: 20px;
-      overflow: hidden;
-      background: white;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+      grid-template-columns: 55% 45%;
     }
 
-    /* LEFT PANEL - MÊME COULEUR QUE REGISTER */
-    .brand-panel {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 48px;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: white;
-    }
-
-    .brand-content {
+    /* ============== LEFT ILLUSTRATION PANEL ============== */
+    .illustration-panel {
       position: relative;
-      z-index: 1;
+      background: #fafbfc;
+      overflow: hidden;
     }
 
-    .brand-icon {
-      width: 64px;
-      height: 64px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 32px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+    .illustration-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+      linear-gradient(160deg, rgba(26, 26, 77, 0.55) 0%, rgba(45, 27, 105, 0.5) 55%, rgba(15, 15, 51, 0.65) 100%), url('/assets/images.jpg');
+      background-size: cover;
+      background-position: center;
     }
 
-    .brand-panel h2 {
-      font-size: 32px;
-      font-weight: 700;
-      margin: 0 0 16px 0;
-      letter-spacing: -0.5px;
-      color: white;
-    }
-
-    .tagline {
-      margin-bottom: 40px;
-    }
-
-    .tagline span {
-      display: block;
-      font-size: 16px;
-      line-height: 1.6;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .tagline span:first-child {
-      font-weight: 500;
-      font-size: 18px;
-      color: white;
-      margin-bottom: 8px;
-    }
-
-    .features {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .feature-item mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      color: #c4b5fd;
-    }
-
-    /* RIGHT PANEL */
+    /* ============== RIGHT FORM PANEL ============== */
     .form-panel {
-      background: #f8fafc;
-      padding: 40px;
+      background: #f4f5f7;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
+      padding: 40px;
     }
 
-    .login-card {
+    .form-content {
       width: 100%;
-      max-width: 500px;
-      background: white;
-      border-radius: 24px;
-      padding: 32px;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+      max-width: 380px;
     }
 
-    /* REGISTER TOP LINK - INSIDE CARD */
-    .register-top-link {
-      text-align: right;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .register-top-link p {
-      margin: 0;
-      font-size: 14px;
-      color: #64748b;
-    }
-
-    .register-top-link a {
-      color: #4f46e5;
-      font-weight: 600;
-      text-decoration: none;
-    }
-
-    .register-top-link a:hover {
-      text-decoration: underline;
-    }
-
-    .title-wrap {
-      margin-bottom: 24px;
-    }
-
-    .pill {
-      background: #eef2ff;
-      color: #4f46e5;
-      padding: 6px 12px;
-      border-radius: 100px;
-      font-size: 12px;
-      font-weight: 500;
-      display: inline-block;
-      margin-bottom: 16px;
-    }
-
-    .title-wrap h1 {
-      font-size: 32px;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-weight: 700;
-      margin: 0 0 8px 0;
-      color: #0f172a;
-      letter-spacing: -0.5px;
+      font-size: 16px;
+      color: #1a1a4d;
+      margin-bottom: 56px;
     }
 
-    .title-wrap p {
+    .brand mat-icon {
+      color: #1a1a4d;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .subtitle {
+      margin: 0 0 36px;
       font-size: 14px;
-      color: #64748b;
-      margin: 0;
+      line-height: 1.6;
+      color: #94a3b8;
     }
 
     form {
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      margin-top: 0;
     }
 
-    ::ng-deep .mat-mdc-form-field {
+    .field-label {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    .full-width {
       width: 100%;
     }
 
     ::ng-deep .mat-mdc-form-field-outline {
-      border-radius: 12px;
+      border-radius: 8px;
     }
 
-    button {
-      background: linear-gradient(90deg, #4f46e5, #7c3aed);
-      color: white;
-      border-radius: 12px;
+    ::ng-deep .mat-mdc-text-field-wrapper {
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    mat-form-field {
+      margin-bottom: 18px;
+    }
+
+    .submit-btn {
+      background: #1a1a4d;
+      color: #ffffff;
+      border-radius: 8px;
       height: 48px;
       font-weight: 600;
       font-size: 15px;
-      margin-top: 8px;
+      margin-top: 16px;
       transition: all 0.2s ease;
     }
 
-    button:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 20px -10px rgba(79, 70, 229, 0.4);
+    .submit-btn:hover:not(:disabled) {
+      background: #2d1b69;
     }
 
-    button:disabled {
-      background: linear-gradient(90deg, #cbd5e1, #94a3b8);
-    }
-
-    .accounts {
-      font-size: 13px;
-      color: #64748b;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 20px;
-      margin-top: 24px;
-    }
-
-    .accounts p {
-      margin: 8px 0;
-    }
-
-    .accounts strong {
-      color: #334155;
+    .submit-btn:disabled {
+      background: #cbd5e1;
     }
 
     .error {
       color: #ef4444;
       font-size: 13px;
       text-align: center;
-      margin: 8px 0 0;
+      margin: 12px 0 0;
     }
 
-    /* RESPONSIVE */
+    /* ============== RESPONSIVE ============== */
     @media (max-width: 900px) {
-      .glass-board {
+      .login-wrapper {
         grid-template-columns: 1fr;
-        border-radius: 24px;
       }
 
-      .brand-panel {
-        padding: 40px;
-        text-align: center;
-      }
-
-      .brand-icon {
-        margin: 0 auto 32px;
-      }
-
-      .feature-item {
-        justify-content: center;
-      }
-
-      .form-panel {
-        padding: 32px;
-      }
-
-      .login-card {
-        padding: 24px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .brand-panel {
-        padding: 32px;
+      .illustration-panel {
+        display: none;
       }
 
       .form-panel {
         padding: 24px;
-      }
-
-      .login-card {
-        padding: 20px;
-      }
-
-      .title-wrap h1 {
-        font-size: 28px;
       }
     }
   `]
@@ -376,6 +209,7 @@ export class LoginComponent {
   private readonly router = inject(Router);
 
   errorMessage = '';
+  hidePassword = true;
 
   readonly loginForm = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

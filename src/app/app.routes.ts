@@ -1,14 +1,10 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth.guard';
+import { adminGuard, authGuard } from './core/guards/auth.guard';
 
 export const appRoutes: Routes = [
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login.component').then((m) => m.LoginComponent)
-  },
-  {
-    path: 'register',
-    loadComponent: () => import('./features/auth/register.component').then((m) => m.RegisterComponent)
   },
   {
     path: 'home',
@@ -26,17 +22,35 @@ export const appRoutes: Routes = [
     loadComponent: () => import('./features/bpmn-viewer/viewer.component').then((m) => m.ViewerComponent)
   },
   {
+    path: 'admin',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./features/admin/admin-layout.component').then((m) => m.AdminLayoutComponent),
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/admin/admin.component').then((m) => m.AdminComponent)
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./features/admin/dashboard.component').then((m) => m.DashboardComponent)
+      },
+      {
+        path: 'activity-logs',
+        loadComponent: () => import('./features/admin/activity-logs.component').then((m) => m.ActivityLogsComponent)
+      }
+    ]
+  },
+  {
     path: 'about',
-    canActivate: [authGuard],
     loadComponent: () => import('./features/about/about.component').then((m) => m.AboutComponent)
   },
   { 
     path: '', 
     pathMatch: 'full', 
-    redirectTo: 'login' 
+    redirectTo: 'about' 
   },
   { 
     path: '**', 
-    redirectTo: 'login' 
+    redirectTo: 'about' 
   }
 ];

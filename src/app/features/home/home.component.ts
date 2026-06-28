@@ -47,22 +47,25 @@ interface BpmnElement {
     <div class="workspace-container">
       <!-- Sidebar gauche - Chat/Input -->
       <aside class="chat-sidebar" [class.collapsed]="isSidebarCollapsed">
-        <div class="sidebar-header">
-          <h2 *ngIf="!isSidebarCollapsed">BPMN Studio</h2>
+        <div class="sidebar-header" *ngIf="!isSidebarCollapsed">
+          <div class="header-title">
+            <h2>Describe your process <span class="sparkle">✦</span></h2>
+            <p>Explain your telecom process in natural language and we'll generate the BPMN diagram for you.</p>
+          </div>
           <div class="header-actions">
-            <button mat-icon-button routerLink="/history" title="History" *ngIf="!isSidebarCollapsed">
+            <button mat-icon-button routerLink="/history" title="History">
               <mat-icon>history</mat-icon>
               <span class="history-badge" *ngIf="historyCount() > 0">{{ historyCount() }}</span>
             </button>
-            <button mat-icon-button (click)="toggleSidebar()" [matTooltip]="isSidebarCollapsed ? 'Expand chat' : 'Collapse chat'">
-              <mat-icon>{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+            <button mat-icon-button (click)="toggleSidebar()" matTooltip="Collapse chat">
+              <mat-icon>chevron_left</mat-icon>
             </button>
           </div>
         </div>
 
         <!-- Contenu du chat (visible uniquement quand déployé) -->
         <div class="chat-content" *ngIf="!isSidebarCollapsed">
-          <div class="messages-container" #messagesContainer>
+          <div class="messages-container" #messagesContainer *ngIf="messages().length > 0">
             <div *ngFor="let message of messages()" class="message" [class.user]="message.role === 'user'" [class.assistant]="message.role === 'assistant'">
               <div class="message-avatar">
                 <mat-icon *ngIf="message.role === 'user'">person</mat-icon>
@@ -86,22 +89,38 @@ interface BpmnElement {
           </div>
 
           <div class="input-area">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Describe your process...</mat-label>
-              <textarea matInput rows="3" [formControl]="promptControl" placeholder="Ex: Lorsqu'un client demande une portabilité, vérifier son éligibilité puis activer la ligne."></textarea>
-            </mat-form-field>
-            <div class="input-actions">
-              <div class="examples">
-                <button mat-stroked-button size="small" *ngFor="let example of examples" (click)="selectExample(example)">
-                  <mat-icon>bolt</mat-icon>
-                  {{ example | slice:0:40 }}{{ example.length > 40 ? '...' : '' }}
-                </button>
-              </div>
-              <button mat-flat-button color="primary" (click)="generate()" [disabled]="!promptControl.value || isLoading">
-                <mat-icon>auto_awesome</mat-icon>
-                Generate BPMN
+            <div class="textarea-wrapper">
+              <textarea
+                rows="3"
+                [formControl]="promptControl"
+                placeholder="Describe your process here..."
+              ></textarea>
+              <button
+                class="send-btn"
+                (click)="generate()"
+                matTooltip="Send"
+              >
+                <mat-icon>arrow_upward</mat-icon>
               </button>
             </div>
+
+            <div class="examples-section">
+              <p class="examples-label">
+                <mat-icon>auto_awesome</mat-icon>
+                Example prompts
+              </p>
+              <div class="examples-list">
+                <button type="button" class="example-card" *ngFor="let example of examples" (click)="selectExample(example)">
+                  <mat-icon>bolt</mat-icon>
+                  <span>{{ example }}</span>
+                </button>
+              </div>
+            </div>
+
+            <button class="generate-btn" (click)="generate()">
+              <mat-icon>auto_awesome</mat-icon>
+              Generate BPMN
+            </button>
           </div>
         </div>
 
@@ -119,9 +138,10 @@ interface BpmnElement {
       <!-- Zone centrale - Canvas BPMN -->
       <main class="canvas-area">
         <div class="canvas-header">
-          <div class="model-info" *ngIf="currentModel()">
-            <h3>{{ currentModel()?.name }}</h3>
-            <p class="status-badge" [class.generated]="currentModel()?.status === 'Generated'">
+          <div class="model-info">
+            <h3>{{ currentModel()?.name || 'BPMN Diagram' }}</h3>
+            <p class="model-subtitle" *ngIf="!currentModel()">Your process diagram will appear here</p>
+            <p class="status-badge" *ngIf="currentModel()" [class.generated]="currentModel()?.status === 'Generated'">
               {{ currentModel()?.status }}
             </p>
           </div>
@@ -145,7 +165,6 @@ interface BpmnElement {
             <button mat-icon-button (click)="resetZoom()" title="Fit to view" matTooltip="Fit to view">
               <mat-icon>center_focus_strong</mat-icon>
             </button>
-            <span class="divider"></span>
             <button mat-stroked-button (click)="exportXml()" [disabled]="!currentModel()" matTooltip="Export as XML">
               <mat-icon>description</mat-icon>
               Export XML
@@ -154,39 +173,171 @@ interface BpmnElement {
               <mat-icon>image</mat-icon>
               Export SVG
             </button>
-             <button
-              mat-flat-button
-              color="primary"
-              class="deploy-btn"
-              (click)="deployCurrentModel()"
-              [disabled]="!currentModel() || isDeploying"
-              matTooltip="Deploy BPMN process"
-            >
-              {{ isDeploying ? 'Deploying...' : 'Deploy BPMN' }}
-            </button>
           </div>
         </div>
+
+        <button
+          class="deploy-btn"
+          (click)="deployCurrentModel()"
+          matTooltip="Deploy BPMN process"
+        >
+          <mat-icon>rocket_launch</mat-icon>
+          {{ isDeploying ? 'Deploying...' : 'Deploy BPMN' }}
+        </button>
+
         <div class="canvas-container">
           <div #canvas class="bpmn-canvas"></div>
           <div class="empty-state" *ngIf="!currentModel() && !isLoading">
-            <mat-icon class="empty-icon">account_tree</mat-icon>
-            <h3>No BPMN model yet</h3>
-            <p>Describe your process in the chat to generate a BPMN diagram</p>
-          </div>
+
+  <div class="empty-illustration">
+
+    <svg
+      class="bpmn-empty-svg"
+      viewBox="0 0 260 260"
+      xmlns="http://www.w3.org/2000/svg">
+
+      <!-- Halo -->
+      <defs>
+
+        <radialGradient id="bg" cx="50%" cy="50%">
+          <stop offset="0%" stop-color="#EEF2FF"/>
+          <stop offset="100%" stop-color="#F8FAFF"/>
+        </radialGradient>
+
+        <filter id="shadow">
+          <feDropShadow
+            dx="0"
+            dy="6"
+            stdDeviation="10"
+            flood-color="#CBD5E1"
+            flood-opacity=".45"/>
+        </filter>
+
+      </defs>
+
+      <!-- Background -->
+      <circle
+        cx="130"
+        cy="130"
+        r="82"
+        fill="url(#bg)"/>
+
+      <!-- Connections -->
+      <path
+        d="M95 95 H130 V130 H172"
+        stroke="#C7D2FE"
+        stroke-width="5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+      <path
+        d="M130 95 V75"
+        stroke="#C7D2FE"
+        stroke-width="5"
+        stroke-linecap="round"/>
+
+      <path
+        d="M130 142 V168"
+        stroke="#C7D2FE"
+        stroke-width="5"
+        stroke-linecap="round"/>
+
+      <!-- Top Task -->
+      <rect
+        x="111"
+        y="48"
+        width="42"
+        height="28"
+        rx="7"
+        ry="7"
+        fill="#8EA4FF"
+        filter="url(#shadow)"/>
+
+      <!-- Left Task -->
+      <rect
+        x="58"
+        y="82"
+        width="42"
+        height="28"
+        rx="7"
+        ry="7"
+        fill="#8EA4FF"
+        filter="url(#shadow)"/>
+
+      <!-- Gateway -->
+      <rect
+        x="118"
+        y="118"
+        width="24"
+        height="24"
+        transform="rotate(45 130 130)"
+        fill="#8096F8"
+        filter="url(#shadow)"/>
+
+      <!-- Bottom Task -->
+      <rect
+        x="111"
+        y="168"
+        width="42"
+        height="28"
+        rx="7"
+        ry="7"
+        fill="#8EA4FF"
+        filter="url(#shadow)"/>
+
+      <!-- End Event -->
+      <circle
+        cx="188"
+        cy="130"
+        r="14"
+        fill="#8EA4FF"
+        filter="url(#shadow)"/>
+
+      <!-- Decorations -->
+      <g fill="#D7E3FF">
+
+        <path d="M72 42
+                 L75 50
+                 L83 53
+                 L75 56
+                 L72 64
+                 L69 56
+                 L61 53
+                 L69 50Z"/>
+
+        <path d="M190 64
+                 L192 70
+                 L198 72
+                 L192 74
+                 L190 80
+                 L188 74
+                 L182 72
+                 L188 70Z"/>
+
+        <circle cx="73" cy="182" r="3"/>
+        <circle cx="192" cy="188" r="3"/>
+        <circle cx="208" cy="108" r="2"/>
+        <circle cx="58" cy="118" r="2"/>
+
+      </g>
+
+    </svg>
+
+  </div>
+
+  <h3>No diagram generated yet</h3>
+
+  <p>
+    Describe your process in the chat and click
+    <strong>Generate BPMN</strong>
+    to get started.
+  </p>
+
+</div>
         </div>
+
         
-        <!-- Footer avec liens de navigation -->
-        <div class="canvas-footer">
-          <div class="footer-links">
-            <a routerLink="/about">About</a>
-            <a routerLink="/home">Home</a>
-            <a routerLink="/history">History</a>
-            <a (click)="logout()" class="logout-link">Logout</a>
-          </div>
-          <div class="footer-brand">
-            <span>BPMN.io</span>
-          </div>
-        </div>
       </main>
       <aside class="properties-sidebar" [class.hidden]="!isPropertiesPanelVisible">
         <div class="properties-header">
@@ -231,7 +382,7 @@ interface BpmnElement {
 
     /* Sidebar styles */
     .chat-sidebar {
-      width: 400px;
+      width: 420px;
       background: white;
       border-right: 1px solid #e2e8f0;
       display: flex;
@@ -242,33 +393,44 @@ interface BpmnElement {
     }
 
     .chat-sidebar.collapsed {
-      width: 64px;
+      width: 72px;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 24px;
     }
 
     .sidebar-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 20px;
-      border-bottom: 1px solid #e2e8f0;
+      align-items: flex-start;
+      padding: 24px 24px 16px;
       background: white;
-      min-height: 73px;
     }
 
-    .sidebar-header h2 {
+    .header-title h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .header-title .sparkle {
+      color: #f4c9c0;
+    }
+
+    .header-title p {
       margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #64748b;
     }
 
     .header-actions {
       display: flex;
-      gap: 8px;
+      gap: 4px;
       align-items: center;
       position: relative;
+      flex-shrink: 0;
     }
 
     .history-badge {
@@ -291,28 +453,33 @@ interface BpmnElement {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px 0;
-      gap: 16px;
+      gap: 8px;
+      position: relative;
     }
 
     .mini-chat-btn {
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: white;
-      width: 40px;
-      height: 40px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+      color: white !important;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
     }
 
     .mini-chat-btn mat-icon {
-      font-size: 24px;
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
     }
 
     .mini-history-badge {
       background: #ef4444;
       color: white;
       border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      font-size: 12px;
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
+      font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -329,15 +496,17 @@ interface BpmnElement {
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      padding: 0 24px 24px;
     }
 
     .messages-container {
-      flex: 1;
+      flex: 0 0 auto;
+      max-height: 240px;
       overflow-y: auto;
-      padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 16px;
+      margin-bottom: 16px;
     }
 
     .message {
@@ -368,13 +537,13 @@ interface BpmnElement {
     }
 
     .message.user .message-avatar {
-      background: #4f46e5;
+      background: #1a1a4d;
       color: white;
     }
 
     .message.assistant .message-avatar {
       background: #f1f5f9;
-      color: #4f46e5;
+      color: #1a1a4d;
     }
 
     .message-avatar mat-icon {
@@ -396,7 +565,7 @@ interface BpmnElement {
     }
 
     .message.user .message-text {
-      background: #4f46e5;
+      background: #1a1a4d;
       color: white;
     }
 
@@ -443,44 +612,138 @@ interface BpmnElement {
     }
 
     .input-area {
-      padding: 20px;
-      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .textarea-wrapper {
+      position: relative;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
       background: white;
     }
 
-    .full-width {
+    .textarea-wrapper textarea {
       width: 100%;
+      min-height: 140px;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: 14px 52px 14px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      border-radius: 14px;
+      box-sizing: border-box;
     }
 
-    .input-actions {
+    .send-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .send-btn:disabled {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .send-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .examples-section {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-top: 12px;
+      gap: 10px;
     }
 
-    .examples {
+    .examples-label {
       display: flex;
-      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .examples-label mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #f4c9c0;
+    }
+
+    .examples-list {
+      display: flex;
+      flex-direction: column;
       gap: 8px;
     }
 
-    .examples button {
-      font-size: 12px;
-      padding: 4px 12px;
+    .example-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      text-align: left;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
     }
 
-    .examples button mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      margin-right: 4px;
+    .example-card:hover {
+      background: #eef0fa;
+      border-color: #1a1a4d;
     }
 
-    button[mat-flat-button] {
+    .example-card mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #1a1a4d;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+
+    .generate-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       width: 100%;
-      padding: 10px;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
       background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .generate-btn:disabled {
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     /* Canvas area */
@@ -490,38 +753,40 @@ interface BpmnElement {
       flex-direction: column;
       overflow: hidden;
       min-width: 0;
-      padding: 12px 12px 0;
-      gap: 12px;
+      padding: 20px 20px 0;
+      gap: 16px;
     }
 
     .canvas-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      background: white;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .model-info {
-      display: flex;
-      align-items: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
       gap: 12px;
     }
 
     .model-info h3 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .model-subtitle {
       margin: 0;
-      font-size: 18px;
-      font-weight: 600;
+      font-size: 13px;
+      color: #64748b;
     }
 
     .status-badge {
+      display: inline-block;
       padding: 4px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 500;
       background: #e2e8f0;
       color: #475569;
+      margin: 0;
     }
 
     .status-badge.generated {
@@ -537,38 +802,44 @@ interface BpmnElement {
       justify-content: flex-end;
     }
 
-    .divider {
-      width: 1px;
-      height: 30px;
-      background: #e2e8f0;
-      margin: 0 4px;
-    }
-
     .deploy-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      height: 48px;
+      border: none;
       border-radius: 12px;
-    }
-    .properties-toggle-btn {
-      border-radius: 10px;
-      white-space: nowrap;
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
     }
 
-
+    .deploy-btn:disabled {
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
     .canvas-container {
       flex: 1;
       position: relative;
       background: white;
       margin: 0;
-      border-radius: 12px;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
       border: 1px solid #e2e8f0;
+      background-image: radial-gradient(circle, #e8eaf0 1px, transparent 1px);
+      background-size: 18px 18px;
     }
 
     .bpmn-canvas {
       width: 100%;
       height: 100%;
-      background: white;
     }
 
     .empty-state {
@@ -577,53 +848,45 @@ interface BpmnElement {
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      color: #94a3b8;
+      max-width: 360px;
     }
 
-    .empty-icon {
-      font-size: 64px;
-      width: 64px;
-      height: 64px;
-      margin-bottom: 16px;
+    .empty-illustration{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    width:260px;
+    height:260px;
+    margin:0 auto 28px;
+    }
+    .bpmn-empty-svg{
+    width:260px;
+    height:260px;
+    transition:.35s ease;
+}
+.empty-state:hover .bpmn-empty-svg{
+    transform:translateY(-3px) scale(1.02);
+    }
+    .empty-state h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
     }
 
-    /* Footer */
-    .canvas-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 24px;
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px 12px 0 0;
-      margin-top: auto;
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 24px;
-    }
-
-    .footer-links a {
+    .empty-state p {
+      margin: 0;
+      font-size: 14px;
       color: #64748b;
-      text-decoration: none;
-      font-size: 13px;
-      transition: color 0.2s;
-      cursor: pointer;
+      line-height: 1.5;
     }
 
-    .footer-links a:hover {
+    .empty-state strong {
       color: #4f46e5;
     }
 
-    .logout-link:hover {
-      color: #ef4444 !important;
-    }
+    
 
-    .footer-brand {
-      color: #94a3b8;
-      font-size: 12px;
-    }
     .properties-sidebar {
       width: 320px;
       background: white;
@@ -694,7 +957,7 @@ interface BpmnElement {
 
       .canvas-area {
         height: 50%;
-        padding: 8px 8px 0;
+        padding: 12px 12px 0;
       }
       .properties-sidebar {
         width: 100%;
@@ -743,11 +1006,12 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
   selectedElementType = '';
   selectedElementId = '';
   selectedElementName = '';
+  currentBpmnJson: any = null;
 
   readonly examples: string[] = [
     'Lorsqu\'un client demande une portabilité, vérifier son éligibilité puis activer la ligne.',
-    'Lorsqu\'une commande est passée, valider le paiement puis expédier le produit.',
-    'Lorsqu\' un abonnement expire, envoyer un rappel et désactiver le service si non renouvelé.'
+    'Lorsqu\'une commande est passée, valider le paiement et traiter la commande.',
+    'Lorsqu\'un abonnement expire, envoyer une notification de renouvellement au client.'
   ];
 
   modeler: BpmnModeler | null = null;
@@ -799,10 +1063,12 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
   this.promptControl.reset();
   this.isLoading = true;
 
-  this.bpmnService.generateBpmn(userMessage).subscribe({
+  const currentBpmn = this.currentBpmnJson;
+
+  this.bpmnService.generateBpmn(userMessage, currentBpmn).subscribe({
     next: async (xml: string) => {
       const model: BpmnModel = {
-        id: crypto.randomUUID(),
+        id: this.currentModel()?.id || crypto.randomUUID(),
         name: `Process ${new Date().toLocaleDateString()}`,
         description: userMessage,
         date: new Date(),
@@ -815,6 +1081,7 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
       this.historyService.addToHistory(model);
 
       await this.loadDiagram(xml);
+      this.currentBpmnJson = this.bpmnService.lastBpmnJson; // ← stocker le JSON
       this.addMessage('assistant', `✅ BPMN diagram generated and saved to history! You can view it anytime in the History section.`);
       this.isLoading = false;
       setTimeout(() => this.scrollToBottom(), 100);
@@ -940,7 +1207,6 @@ resetZoom(): void {
   }
 
   logout(): void {
-    // Implémentez votre logique de déconnexion ici
     localStorage.removeItem('token');
     this.router.navigate(['/login']);
     this.snackBar.open('Logged out successfully', 'Close', { duration: 2000 });
