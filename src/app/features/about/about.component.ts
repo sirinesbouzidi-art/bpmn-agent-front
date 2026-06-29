@@ -253,14 +253,14 @@ import { MatIconModule } from '@angular/material/icon';
      /* APRÈS */
       .notice {
        display: flex;
-       align-items: center;
+       align-items: flex-start;
        gap: 18px;
        background: rgba(255, 255, 255, 0.08);
        border: 1px solid rgba(255, 255, 255, 0.18);
        border-radius: 12px;
        padding: 16px 22px;
        margin-top: 130px;
-       max-width: 100%;
+       max-width: 1100%;
        width: max-content;
      }
 

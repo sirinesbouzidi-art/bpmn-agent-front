@@ -37,7 +37,7 @@ import { AuthService } from '../../core/services/auth.service';
             <span>BPMN Telecom Studio</span>
           </div>
 
-          <h1>login </h1>
+          <h1>LOGIN </h1>
           <p class="subtitle">
             Welcome to BPMN Telecom Studio.<br />
             Use the account provided by your administrator.
@@ -58,7 +58,7 @@ import { AuthService } from '../../core/services/auth.service';
             </mat-form-field>
 
             <button mat-flat-button type="submit" class="submit-btn" [disabled]="loginForm.invalid">
-              Sign in
+              Login
             </button>
 
             <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>

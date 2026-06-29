@@ -95,21 +95,31 @@ interface BpmnElement {
   `,
   styles: [
     `
-      .viewer-grid {
-        display: grid;
-        grid-template-columns: minmax(260px, 0.9fr) minmax(0, 2.2fr) minmax(280px, 1fr);
-        gap: 18px;
-        align-items: start;
+     .viewer-grid {
+      display: grid;
+
+      grid-template-columns:
+        minmax(260px, 20%)
+        minmax(0, 1fr)
+        minmax(260px, 20%);
+        gap: 24px;
+        width: 100%;
+        height: calc(100vh - 110px);
+        align-items: stretch;
       }
 
       .diagram-layout {
-        min-height: 560px;
+        flex: 1;
+        min-height: 0;
+        display: flex;
       }
+
       .canvas {
-        height: 560px;
+        flex: 1;
+        min-height: 0;
         border: 1px solid #dce4f5;
         border-radius: 16px;
-        background: linear-gradient(180deg, #ffffff, #f8faff);
+        background: linear-gradient(180deg,#ffffff,#f8faff);
         overflow: hidden;
       }
 
@@ -157,6 +167,7 @@ interface BpmnElement {
       .info-card,
       .properties-card {
         min-height: 560px;
+        padding: 28px;
       }
 
       .properties-form {
@@ -203,8 +214,9 @@ interface BpmnElement {
         }
 
         .properties-card {
-          grid-column: 1 / -1;
-          min-height: 380px;
+          grid-column:1/-1;
+          height:auto;
+          padding:28px;
         }
 
         .properties-panel {
@@ -219,10 +231,19 @@ interface BpmnElement {
         .canvas {
           height: 440px;
         }
+        
+        .diagram-card{
+          display:flex;
+          flex-direction:column;
+          overflow:hidden;
+        }
 
         .info-card,
-        .properties-card {
-          min-height: auto;
+        .diagram-card,
+        .properties-card{
+          height:auto;
+          display:flex;
+          flex-direction:column;
         }
       }
     `
