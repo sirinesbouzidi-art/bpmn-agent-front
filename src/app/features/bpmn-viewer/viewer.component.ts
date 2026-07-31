@@ -32,7 +32,7 @@ interface BpmnElement {
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule],
   template: `
-    <div class="page-container" *ngIf="model() as currentModel">
+    <div class="viewer-wrapper" *ngIf="model() as currentModel">
       <div class="viewer-grid">
         <mat-card class="content-card info-card">
           <h3>Model Info</h3>
@@ -93,161 +93,146 @@ interface BpmnElement {
       </div>
     </div>
   `,
-  styles: [
-    `
-     .viewer-grid {
-      display: grid;
+  styles: [`
+  .viewer-wrapper {
+    width: 100%;
+    height: calc(100vh - 64px);
+    padding: 16px 24px;
+    box-sizing: border-box;
+    background: #f4f6fb;
+    overflow: hidden;
+  }
 
-      grid-template-columns:
-        minmax(260px, 20%)
-        minmax(0, 1fr)
-        minmax(260px, 20%);
-        gap: 24px;
-        width: 100%;
-        height: calc(100vh - 110px);
-        align-items: stretch;
-      }
+  .viewer-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 18%) minmax(0, 1fr) minmax(240px, 18%);
+    gap: 16px;
+    width: 100%;
+    height: 100%;
+    align-items: stretch;
+  }
 
-      .diagram-layout {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-      }
+  .diagram-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding: 16px;
+    box-sizing: border-box;
+  }
 
-      .canvas {
-        flex: 1;
-        min-height: 0;
-        border: 1px solid #dce4f5;
-        border-radius: 16px;
-        background: linear-gradient(180deg,#ffffff,#f8faff);
-        overflow: hidden;
-      }
+  .diagram-layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+  }
 
-      .actions {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 14px;
-      }
+  .canvas {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    border: 1px solid #dce4f5;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff, #f8faff);
+    overflow: hidden;
+  }
 
-      .actions button[mat-icon-button] {
-        border-radius: 12px;
-        border: 1px solid #dbe4f8;
-        background: #f8faff;
-      }
+  .info-card,
+  .properties-card {
+    min-height: 0;
+    height: 100%;
+    padding: 24px;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
 
-      .actions button[mat-stroked-button] {
-        border-radius: 12px;
-        border-color: #cad8fb;
-        color: #3b4f75;
-      }
+  .actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-shrink: 0;
+  }
 
-      .actions button[mat-flat-button] {
-        border-radius: 12px;
-      }
+  .actions button[mat-icon-button] {
+    border-radius: 12px;
+    border: 1px solid #dbe4f8;
+    background: #f8faff;
+  }
 
-      .deploy-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
-        color: #1f2a44;
-      }
+  .actions button[mat-stroked-button] {
+    border-radius: 12px;
+    border-color: #cad8fb;
+    color: #3b4f75;
+  }
 
-      .deploy-status .error {
-        color: #c62828;
-      }
+  .actions button[mat-flat-button] {
+    border-radius: 12px;
+  }
 
-      .divider {
-        width: 1px;
-        height: 24px;
-        background: #d7deea;
-      }
-      .info-card,
-      .properties-card {
-        min-height: 560px;
-        padding: 28px;
-      }
+  .deploy-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #1f2a44;
+    flex-shrink: 0;
+  }
 
-      .properties-form {
-        display: grid;
-        gap: 12px;
-      }
+  .deploy-status .error { color: #c62828; }
 
-      .properties-form label {
-        display: grid;
-        gap: 4px;
-        color: #3b4f75;
-        font-size: 13px;
-      }
+  .divider {
+    width: 1px;
+    height: 24px;
+    background: #d7deea;
+  }
 
-      .properties-form input {
-        height: 38px;
-        border-radius: 10px;
-        border: 1px solid #cad8fb;
-        padding: 0 10px;
-        color: #1f2a44;
-      }
+  .properties-form {
+    display: grid;
+    gap: 12px;
+  }
 
-      .empty-text {
-        margin: 0;
-        color: #53617f;
-      }
+  .properties-form label {
+    display: grid;
+    gap: 4px;
+    color: #3b4f75;
+    font-size: 13px;
+  }
 
-      h3 {
-        margin-top: 0;
-        font-size: 30px;
-      }
+  .properties-form input {
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid #cad8fb;
+    padding: 0 10px;
+    color: #1f2a44;
+  }
 
-      p {
-        color: #53617f;
-        margin: 0 0 12px;
-      }
+  .empty-text { margin: 0; color: #53617f; }
+  h3 { margin-top: 0; font-size: 24px; }
+  p { color: #53617f; margin: 0 0 12px; }
+  strong { color: #1f2a44; }
 
-      strong {
-        color: #1f2a44;
-      }
-      @media (max-width: 1280px) {
-        .viewer-grid {
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
-        }
+  @media (max-width: 1280px) {
+    .viewer-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
+      height: auto;
+      overflow-y: auto;
+    }
+    .viewer-wrapper { overflow-y: auto; }
+    .properties-card { grid-column: 1 / -1; height: auto; }
+  }
 
-        .properties-card {
-          grid-column:1/-1;
-          height:auto;
-          padding:28px;
-        }
-
-        .properties-panel {
-          min-height: 300px;
-        }
-      }
-
-      @media (max-width: 992px) {
-        .viewer-grid {
-          grid-template-columns: 1fr;
-        }
-        .canvas {
-          height: 440px;
-        }
-        
-        .diagram-card{
-          display:flex;
-          flex-direction:column;
-          overflow:hidden;
-        }
-
-        .info-card,
-        .diagram-card,
-        .properties-card{
-          height:auto;
-          display:flex;
-          flex-direction:column;
-        }
-      }
-    `
-  ]
+  @media (max-width: 992px) {
+    .viewer-grid { grid-template-columns: 1fr; }
+    .canvas { height: 440px; }
+    .info-card,
+    .diagram-card,
+    .properties-card { height: auto; }
+  }
+`]
 })
 export class ViewerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: false }) canvasRef?: ElementRef<HTMLDivElement>;

@@ -173,17 +173,16 @@ interface BpmnElement {
               <mat-icon>image</mat-icon>
               Export SVG
             </button>
+            <button mat-stroked-button (click)="goToValidation()" [disabled]="!currentModel()" matTooltip="Valider le diagramme">
+              <mat-icon>fact_check</mat-icon>
+              Validate
+            </button>
+            <button mat-flat-button (click)="deployCurrentModel()" [disabled]="!currentModel()" matTooltip="Deploy BPMN process" style="background: linear-gradient(90deg, #4f46e5, #7c3aed); color: white; border-radius: 8px;">
+              <mat-icon>rocket_launch</mat-icon>
+              {{ isDeploying ? 'Deploying...' : 'Deploy BPMN' }}
+            </button>
           </div>
         </div>
-
-        <button
-          class="deploy-btn"
-          (click)="deployCurrentModel()"
-          matTooltip="Deploy BPMN process"
-        >
-          <mat-icon>rocket_launch</mat-icon>
-          {{ isDeploying ? 'Deploying...' : 'Deploy BPMN' }}
-        </button>
 
         <div class="canvas-container">
           <div #canvas class="bpmn-canvas"></div>
@@ -802,28 +801,6 @@ interface BpmnElement {
       justify-content: flex-end;
     }
 
-    .deploy-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      width: 100%;
-      height: 48px;
-      border: none;
-      border-radius: 12px;
-      background: linear-gradient(90deg, #4f46e5, #7c3aed);
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    .deploy-btn:disabled {
-      background: linear-gradient(90deg, #4f46e5, #7c3aed);
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
     .canvas-container {
       flex: 1;
       position: relative;
@@ -1047,6 +1024,10 @@ export class HomeComponent implements AfterViewInit, OnDestroy {
     this.isPropertiesPanelVisible = !this.isPropertiesPanelVisible;
   }
 
+  goToValidation(): void {
+  const model = this.currentModel();
+  if (model) this.router.navigate(['/validation', model.id]);
+  }
 
   selectExample(example: string): void {
     this.promptControl.setValue(example);

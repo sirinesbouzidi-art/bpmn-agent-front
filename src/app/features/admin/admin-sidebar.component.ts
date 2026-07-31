@@ -28,10 +28,6 @@ import { MatIconModule } from '@angular/material/icon';
           <mat-icon>group</mat-icon>
           Team Management
         </a>
-        <a class="nav-item" routerLink="/admin/activity-logs" routerLinkActive="active">
-          <mat-icon>list_alt</mat-icon>
-          Activity Logs
-        </a>
       </nav>
 
       <div class="sidebar-footer">

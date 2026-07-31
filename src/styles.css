@@ -69,4 +69,18 @@ button.mat-mdc-unelevated-button.mat-primary {
     border-radius: 18px;
     padding: 20px;
   }
+}   /* ← accolade fermante de @media ici */
+
+/* Marqueurs d'erreur bpmnlint sur le canvas */
+.djs-shape.lint-error .djs-visual > :first-child,
+.djs-connection.lint-error .djs-visual path {
+  stroke: #ef4444 !important;
+  stroke-width: 2px !important;
 }
+
+.djs-shape.lint-warn .djs-visual > :first-child,
+.djs-connection.lint-warn .djs-visual path {
+  stroke: #f59e0b !important;
+  stroke-width: 2px !important;
+}
+

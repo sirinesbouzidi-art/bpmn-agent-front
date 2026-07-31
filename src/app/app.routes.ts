@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard, authGuard } from './core/guards/auth.guard';
+import { ValidationComponent } from './core/validation/validation.component';
 
 export const appRoutes: Routes = [
   {
@@ -11,6 +12,7 @@ export const appRoutes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent)
   },
+  { path: 'validation/:id', component: ValidationComponent, canActivate: [authGuard] },
   {
     path: 'history',
     canActivate: [authGuard],
